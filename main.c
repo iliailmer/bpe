@@ -8,15 +8,19 @@ int main(void) {
   pair p;
   char *text = "This is a sample text that I wrote while watching Tsoding on Twitch";
   ht *table = ht_create();
-  p.l = text[0];
-  p.r = text[1];
-  ht_item item;
-  item.key = malloc(sizeof(pair));
-  memcpy(item.key, &p, sizeof(p));
-  item.key_len = sizeof(pair);
-  item.value = 0;
-  ht_insert_item(table, item);
+
+  // create a table that counts pairs of characters in a string
+  for (int i = 0; (int)strlen(text) - 2 > i; i++) {
+    p.l = text[i];
+    p.r = text[i + 1];
+    ht_item item;
+    item_init(&item, &p, sizeof(p), 0);
+    ht_insert_item(table, item);
+  }
   ht_display(table);
+  // ht_item get_item = ht_get_item(table, &p, sizeof(p));
+  printf("\n\n\n");
+  // item_display(get_item);
   // uint64_t hash;
   // int text_size = strlen(text);
   // for (int i = 0; i < text_size - 1; i++) {
