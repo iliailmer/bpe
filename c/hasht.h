@@ -29,6 +29,7 @@ typedef struct {
   size_t len;
   uint64_t (*hash_function)(void *key, size_t _size);
   ht_item *items;
+  float load_factor;
 } ht;
 
 // item routines
@@ -42,6 +43,7 @@ uint64_t fnv1a_hash(void *key, size_t _size);
 // hash table routines
 void ht_display(ht *table);
 ht *ht_create(void);
+bool ht_resize(ht *table);
 bool ht_init(ht **table); // trying out double pointer thing, will see if it works
 bool ht_insert_item(ht *table, ht_item item);
 ht_item ht_get_item(ht *table, void *key, size_t _size);

@@ -6,30 +6,24 @@
 void print_hex(const char *s);
 int main(void) {
   pair p;
-  char *text = "This is a sample text that I wrote while watching Tsoding on Twitch";
+  char *text = "Test string with many more chars";
   ht *table = ht_create();
-
+  bool insertion;
   // create a table that counts pairs of characters in a string
-  for (int i = 0; (int)strlen(text) - 2 > i; i++) {
+  for (int i = 0; i < (int)strlen(text) - 1; i++) {
     p.l = text[i];
     p.r = text[i + 1];
     ht_item item;
     item_init(&item, &p, sizeof(p), 0);
-    ht_insert_item(table, item);
+    insertion = ht_insert_item(table, item);
+    if ((!insertion) || (table->load_factor > 0.75)) {
+      printf("LOAD FACTOR %f, resizing\n", table->load_factor);
+      ht_resize(table);
+      printf("LOAD FACTOR AFTER RESIZE: %f\n", table->load_factor);
+    }
   }
   ht_display(table);
   // ht_item get_item = ht_get_item(table, &p, sizeof(p));
   printf("\n\n\n");
-  // item_display(get_item);
-  // uint64_t hash;
-  // int text_size = strlen(text);
-  // for (int i = 0; i < text_size - 1; i++) {
-  //   pair[0] = text[i];
-  //   pair[1] = text[i + 1];
-  //   pair[2] = '\0';
-  //   hash = fnv1_hash(pair);
-  //   print_hex(pair);
-  //   printf("%s:\t\t%llx\n", pair, hash);
-  // }
   return 0;
 }

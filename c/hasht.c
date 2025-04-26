@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-// TODO: Handle collisions
 uint64_t fnv1_hash(void *key, size_t _size) {
   char *ptr = key;
   uint64_t hash = FNV_OFFSET;
@@ -43,6 +42,7 @@ ht *ht_create(void) {
     printf("NULL in FNV1 function");
     return NULL;
   }
+  table->load_factor = 0.0;
   return table;
 }
 
@@ -53,6 +53,9 @@ bool ht_init(ht **table) {
   (*table)->items = malloc(sizeof(ht_item) * (*table)->len);
   if ((*table)->items == NULL) {
     return false;
+  }
+  for (size_t i = 0; i < (*table)->len; i++) {
+    (*table)->items[i].occupied = false;
   }
   (*table)->hash_function = &fnv1_hash;
   if ((*table)->hash_function == NULL) {
@@ -71,9 +74,7 @@ size_t ht_len_2(ht *table) {
 
 void ht_display(ht *table) {
   for (size_t i = 0; i < table->len; i++) {
-    // if (table->items[i].key != NULL) {
     printf("%s\t->\t%d\n", (char *)table->items[i].key, table->items[i].value);
-    // }
   }
 }
 
@@ -91,13 +92,65 @@ void item_init(ht_item *item, void *key, size_t key_len, uint64_t value) {
 bool ht_insert_item(ht *table, ht_item item) {
   uint64_t pos = table->hash_function(item.key, item.key_len) % table->len;
   if (table->items[pos].occupied == false) {
+    printf("SUCCESS\n");
     table->items[pos] = item;
     table->items[pos].occupied = true;
+    table->load_factor = table->load_factor + 1.0 / table->len;
+    return 1;
   } else {
-    printf("COLLISION\n");
-    item_display(item);
+    if (item.key_len == table->items[pos].key_len &&
+        memcmp(table->items[pos].key, item.key, item.key_len) == 0) {
+      printf("DUPLICATE: %c\n", *(char *)(item.key));
+      return 1; // key already inserted, not real collision
+    }
+    printf("COLLISION: %c\n", *(char *)(item.key));
+    size_t start_pos = pos;
+    size_t i = (pos + 1) % table->len;
+    while (i != start_pos) {
+      if (table->items[i].occupied == false) {
+        printf("COLLISION RESOLVED\n");
+        table->items[i] = item;
+        table->items[i].occupied = true;
+        table->load_factor = table->load_factor + 1.0 / table->len;
+        return 1;
+      } else if (item.key_len == table->items[i].key_len &&
+                 memcmp(table->items[i].key, item.key, item.key_len) == 0) {
+        printf("DUPLICATE: %c\n", *(char *)(item.key));
+        return 1; // key already inserted, not real collision
+      }
+
+      i = i + 1;
+      i = i % table->len;
+    }
   }
-  return 1;
+  return 0;
+}
+
+bool ht_resize(ht *table) {
+  table->load_factor = 0;
+  ht_item *new_items = calloc(table->len * 2, sizeof(ht_item));
+  size_t new_len = table->len * 2;
+  if (!new_items) {
+    return 0;
+  }
+  for (size_t i = 0; i < table->len; i++) {
+    ht_item item = table->items[i];
+    if (item.occupied) {
+      size_t pos = table->hash_function(item.key, item.key_len) % new_len;
+      while (new_items[pos].occupied) {
+        pos += 1;            // move along
+        pos = pos % new_len; // NOTE: bad loop?
+      }
+      new_items[pos] = item;
+      new_items[pos].occupied = true;
+      table->load_factor = table->load_factor + 1.0 / new_len;
+    }
+  }
+  free(table->items);
+  table->items = new_items;
+  table->len = new_len;
+
+  return 0;
 }
 
 ht_item ht_get_item(ht *table, void *key, size_t _size) {
