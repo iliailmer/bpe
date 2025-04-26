@@ -14,8 +14,13 @@
 #define INITIAL_SIZE 16
 
 typedef struct {
-  char l;
-  char r;
+  char *data;
+  size_t len;
+} token;
+
+typedef struct {
+  token l;
+  token r;
 } pair;
 
 typedef struct {
@@ -46,7 +51,7 @@ ht *ht_create(void);
 bool ht_resize(ht *table);
 bool ht_init(ht **table); // trying out double pointer thing, will see if it works
 bool ht_insert_item(ht *table, ht_item item);
-ht_item ht_get_item(ht *table, void *key, size_t _size);
+ht_item *ht_get_item(ht *table, void *key, size_t _size);
 size_t ht_len(ht table);
 
 // bool ht_get_item(ht *table, void *key, size_t _size, ht_item *out);

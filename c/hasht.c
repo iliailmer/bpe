@@ -72,14 +72,30 @@ size_t ht_len_2(ht *table) {
   return table->len;
 }
 
-void ht_display(ht *table) {
-  for (size_t i = 0; i < table->len; i++) {
-    printf("%s\t->\t%d\n", (char *)table->items[i].key, table->items[i].value);
+void item_display(ht_item item) {
+  if (!item.occupied)
+    return; // skip empty slots
+  token *tokens = (token *)item.key;
+  size_t token_count = item.key_len / sizeof(token);
+  // Print key
+  for (size_t i = 0; i < token_count; i++) {
+    printf("'");
+    for (size_t j = 0; j < tokens[i].len; j++) {
+      printf("%c", (tokens[i].data[j]));
+    }
+    printf("' ");
   }
+
+  // Print value
+  printf("\t->\t%d\n", item.value);
 }
 
-void item_display(ht_item item) {
-  printf("%s\t->\t%d\n", (char *)item.key, item.value);
+void ht_display(ht *table) {
+  for (size_t i = 0; i < table->len; i++) {
+    if (table->items[i].occupied) {
+      item_display(table->items[i]);
+    }
+  }
 }
 
 void item_init(ht_item *item, void *key, size_t key_len, uint64_t value) {
@@ -87,12 +103,13 @@ void item_init(ht_item *item, void *key, size_t key_len, uint64_t value) {
   memcpy(item->key, key, key_len);
   item->key_len = key_len;
   item->value = value;
+  item->occupied = true;
 }
 
 bool ht_insert_item(ht *table, ht_item item) {
   uint64_t pos = table->hash_function(item.key, item.key_len) % table->len;
   if (table->items[pos].occupied == false) {
-    printf("SUCCESS\n");
+    // printf("SUCCESS\n");
     table->items[pos] = item;
     table->items[pos].occupied = true;
     table->load_factor = table->load_factor + 1.0 / table->len;
@@ -100,22 +117,22 @@ bool ht_insert_item(ht *table, ht_item item) {
   } else {
     if (item.key_len == table->items[pos].key_len &&
         memcmp(table->items[pos].key, item.key, item.key_len) == 0) {
-      printf("DUPLICATE: %c\n", *(char *)(item.key));
+      // printf("DUPLICATE: %c\n", *(char *)(item.key));
       return 1; // key already inserted, not real collision
     }
-    printf("COLLISION: %c\n", *(char *)(item.key));
+    // printf("COLLISION: %c\n", *(char *)(item.key));
     size_t start_pos = pos;
     size_t i = (pos + 1) % table->len;
     while (i != start_pos) {
       if (table->items[i].occupied == false) {
-        printf("COLLISION RESOLVED\n");
+        // printf("COLLISION RESOLVED\n");
         table->items[i] = item;
         table->items[i].occupied = true;
         table->load_factor = table->load_factor + 1.0 / table->len;
         return 1;
       } else if (item.key_len == table->items[i].key_len &&
                  memcmp(table->items[i].key, item.key, item.key_len) == 0) {
-        printf("DUPLICATE: %c\n", *(char *)(item.key));
+        // printf("DUPLICATE: %c\n", *(char *)(item.key));
         return 1; // key already inserted, not real collision
       }
 
@@ -153,10 +170,27 @@ bool ht_resize(ht *table) {
   return 0;
 }
 
-ht_item ht_get_item(ht *table, void *key, size_t _size) {
+ht_item *ht_get_item(ht *table, void *key, size_t _size) {
   uint64_t pos = table->hash_function(key, _size) % table->len;
   ht_item item = table->items[pos];
-  return item;
+  if (!item.occupied) {
+    return NULL;
+  }
+  if (_size == item.key_len && memcmp(item.key, key, _size) == 0) {
+    return &table->items[pos];
+  } else {
+    size_t start_pos = pos;
+    size_t i = (pos + 1) % table->len;
+    while (i != start_pos) {
+      ht_item item = table->items[i];
+      if (_size == item.key_len && memcmp(item.key, key, _size) == 0) {
+        return &table->items[i];
+      }
+      i = i + 1;
+      i = i % table->len;
+    }
+  }
+  return NULL;
 }
 
 void print_hex(const char *s) {
