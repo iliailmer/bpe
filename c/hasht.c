@@ -23,6 +23,33 @@ uint64_t fnv1a_hash(void *key, size_t _size) {
   return hash;
 }
 
+uint64_t fnv1a_hash_pair(void *key, size_t _size) {
+  uint64_t hash = FNV_OFFSET;
+  pair *p = (pair *)key;
+  for (size_t i = 0; i < p->l.len; i++) {
+    hash ^= (uint64_t)p->l.data[i];
+    hash *= FNV_PRIME;
+  }
+  for (size_t i = 0; i < p->r.len; i++) {
+    hash ^= (uint64_t)p->r.data[i];
+    hash *= FNV_PRIME;
+  }
+  return hash;
+}
+uint64_t fnv1_hash_pair(void *key, size_t _size) {
+  uint64_t hash = FNV_OFFSET;
+  pair *p = (pair *)key;
+  for (size_t i = 0; i < p->l.len; i++) {
+    hash *= (uint64_t)p->l.data[i];
+    hash ^= FNV_PRIME;
+  }
+  for (size_t i = 0; i < p->r.len; i++) {
+    hash *= (uint64_t)p->r.data[i];
+    hash ^= FNV_PRIME;
+  }
+  return hash;
+}
+
 ht *ht_create(void) {
   ht *table = malloc(sizeof(ht));
   if (table == NULL) {
