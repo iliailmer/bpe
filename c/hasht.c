@@ -72,7 +72,17 @@ ht *ht_create(void) {
   table->load_factor = 0.0;
   return table;
 }
+void ht_destroy(ht *table) {
+  if (!table)
+    return;
 
+  for (size_t i = 0; i < table->len; i++) {
+    item_destroy(&table->items[i]);
+  }
+
+  free(table->items);
+  free(table);
+}
 bool ht_init(ht **table) {
   *table = malloc(sizeof(ht));
 
@@ -131,6 +141,28 @@ void item_init(ht_item *item, void *key, size_t key_len, uint64_t value) {
   item->key_len = key_len;
   item->value = value;
   item->occupied = true;
+}
+void item_destroy(ht_item *item) {
+  if (!item || !item->occupied)
+    return;
+
+  if (item->item_type == KEY_TYPE_PAIR) {
+    pair *p = (pair *)item->key;
+    if (p) {
+      if (p->l.data)
+        free(p->l.data);
+      if (p->r.data)
+        free(p->r.data);
+      free(p);
+    }
+  } else if (item->item_type == KEY_TYPE_STRING || item->item_type == KEY_TYPE_TOKEN) {
+    if (item->key)
+      free(item->key);
+  }
+
+  item->occupied = false;
+  item->key_len = 0;
+  item->value = 0;
 }
 
 bool ht_insert_item(ht *table, ht_item item) {
