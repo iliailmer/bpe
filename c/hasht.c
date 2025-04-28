@@ -164,7 +164,21 @@ void item_destroy(ht_item *item) {
   item->key_len = 0;
   item->value = 0;
 }
+bool pair_eq(pair *p1, pair *p2) {
+  // Compare left tokens
+  if (p1->l.len != p2->l.len)
+    return false;
+  if (memcmp(p1->l.data, p2->l.data, p1->l.len) != 0)
+    return false;
 
+  // Compare right tokens
+  if (p1->r.len != p2->r.len)
+    return false;
+  if (memcmp(p1->r.data, p2->r.data, p1->r.len) != 0)
+    return false;
+
+  return true;
+}
 bool ht_insert_item(ht *table, ht_item item) {
   uint64_t pos = table->hash_function(item.key, item.key_len) % table->len;
   if (table->items[pos].occupied == false) {
