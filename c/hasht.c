@@ -216,6 +216,32 @@ bool ht_insert_item(ht *table, ht_item item) {
   return 0;
 }
 
+bool ht_insert_item_pair(ht *table, ht_item item) {
+  uint64_t pos = table->hash_function(item.key, item.key_len) % table->len;
+  size_t start_pos = pos;
+  while (true) {
+    ht_item *table_item = &table->items[pos];
+
+    if (!table_item->occupied) {
+      table->items[pos] = item;
+      table->items[pos].occupied = true;
+      table->load_factor = table->load_factor + 1.0 / table->len;
+      return 1;
+    } else {
+      if (item.key_len == table_item->key_len) {
+        if (pair_eq((pair *)item.key, (pair *)table_item->key)) {
+          return 1; // key already inserted, not real collision
+        }
+      }
+    }
+    pos = (pos + 1) % table->len;
+    if (pos == start_pos) {
+      break;
+    }
+  }
+  return 0;
+}
+
 bool ht_resize(ht *table) {
   table->load_factor = 0;
   ht_item *new_items = calloc(table->len * 2, sizeof(ht_item));
@@ -266,6 +292,54 @@ ht_item *ht_get_item(ht *table, void *key, size_t _size) {
   return NULL;
 }
 
+void item_free(ht_item *item) {
+  if (!item || !item->occupied)
+    return;
+
+  pair *p = (pair *)item->key;
+  if (p) {
+    if (p->l.data)
+      free(p->l.data);
+    if (p->r.data)
+      free(p->r.data);
+    free(p);
+  }
+
+  item->occupied = false;
+}
+
+/**
+ * @brief the Get_Item function specifically for token pairs
+ *
+ * @param table
+ * @param key
+ * @param _size
+ * @return
+ */
+ht_item *ht_get_item_pair(ht *table, void *key, size_t _size) {
+  uint64_t pos = table->hash_function(key, _size) % table->len;
+  size_t start_pos = pos;
+
+  while (true) {
+    ht_item *item = &table->items[pos];
+
+    if (!item->occupied) {
+      return NULL; // Empty slot found, key not present
+    }
+
+    if (_size == item->key_len) {
+      if (pair_eq((pair *)item->key, (pair *)key)) {
+        return item;
+      }
+    }
+
+    pos = (pos + 1) % table->len;
+    if (pos == start_pos) {
+      break;
+    }
+  }
+  return NULL;
+}
 void print_hex(const char *s) {
   while (*s)
     printf("%02x", (unsigned int)*s++);
