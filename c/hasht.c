@@ -3,7 +3,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-uint64_t fnv1_hash(void *key, size_t _size) {
+uint64_t fnv1_hash(void *key, size_t _size)
+{
   char *ptr = key;
   uint64_t hash = FNV_OFFSET;
   for (size_t i = 0; i < _size; i++) {
@@ -13,7 +14,8 @@ uint64_t fnv1_hash(void *key, size_t _size) {
   return hash;
 }
 
-uint64_t fnv1a_hash(void *key, size_t _size) {
+uint64_t fnv1a_hash(void *key, size_t _size)
+{
   char *ptr = key;
   uint64_t hash = FNV_OFFSET;
   for (size_t i = 0; i < _size; i++) {
@@ -23,7 +25,36 @@ uint64_t fnv1a_hash(void *key, size_t _size) {
   return hash;
 }
 
-uint64_t fnv1a_hash_pair(void *key, size_t _size) {
+uint64_t fnv1a_hash_tok(void *key)
+{
+  uint64_t hash = FNV_OFFSET;
+  token *p = (token *)key;
+  for (size_t i = 0; i < p->len; i++) {
+    hash ^= (uint64_t)p->data[i];
+    hash *= FNV_PRIME;
+  }
+  for (size_t i = 0; i < p->len; i++) {
+    hash ^= (uint64_t)p->data[i];
+    hash *= FNV_PRIME;
+  }
+  return hash;
+}
+uint64_t fnv1_hash_tok(void *key)
+{
+  uint64_t hash = FNV_OFFSET;
+  token *p = (token *)key;
+  for (size_t i = 0; i < p->len; i++) {
+    hash *= (uint64_t)p->data;
+    hash ^= FNV_PRIME;
+  }
+  for (size_t i = 0; i < p->len; i++) {
+    hash *= (uint64_t)p->data[i];
+    hash ^= FNV_PRIME;
+  }
+  return hash;
+}
+uint64_t fnv1a_hash_pair(void *key)
+{
   uint64_t hash = FNV_OFFSET;
   pair *p = (pair *)key;
   for (size_t i = 0; i < p->l.len; i++) {
@@ -36,7 +67,8 @@ uint64_t fnv1a_hash_pair(void *key, size_t _size) {
   }
   return hash;
 }
-uint64_t fnv1_hash_pair(void *key, size_t _size) {
+uint64_t fnv1_hash_pair(void *key)
+{
   uint64_t hash = FNV_OFFSET;
   pair *p = (pair *)key;
   for (size_t i = 0; i < p->l.len; i++) {
@@ -50,7 +82,25 @@ uint64_t fnv1_hash_pair(void *key, size_t _size) {
   return hash;
 }
 
-ht *ht_create(void) {
+size_t hash_item(ht_item item, ht *table)
+{
+  uint64_t pos;
+  switch (item.item_type) {
+  case KEY_TYPE_PAIR:
+    pos = fnv1_hash_pair(item.key) % table->len;
+    break;
+  case KEY_TYPE_TOKEN:
+    pos = fnv1_hash_tok(item.key) % table->len;
+    break;
+  case KEY_TYPE_STRING:
+    pos = fnv1_hash(item.key, item.key_len);
+    break;
+  }
+  return pos;
+}
+
+ht *ht_create(void)
+{
   ht *table = malloc(sizeof(ht));
   if (table == NULL) {
     return NULL;
@@ -64,15 +114,11 @@ ht *ht_create(void) {
   for (int i = 0; i < (int)table->len; i++) {
     table->items[i].occupied = false;
   }
-  table->hash_function = fnv1_hash;
-  if (table->hash_function == NULL) {
-    printf("NULL in FNV1 function");
-    return NULL;
-  }
   table->load_factor = 0.0;
   return table;
 }
-void ht_destroy(ht *table) {
+void ht_destroy(ht *table)
+{
   if (!table)
     return;
 
@@ -83,7 +129,8 @@ void ht_destroy(ht *table) {
   free(table->items);
   free(table);
 }
-bool ht_init(ht **table) {
+bool ht_init(ht **table)
+{
   *table = malloc(sizeof(ht));
 
   (*table)->len = INITIAL_SIZE;
@@ -94,22 +141,15 @@ bool ht_init(ht **table) {
   for (size_t i = 0; i < (*table)->len; i++) {
     (*table)->items[i].occupied = false;
   }
-  (*table)->hash_function = &fnv1_hash;
-  if ((*table)->hash_function == NULL) {
-    return false;
-  }
   return true;
 }
 
-size_t ht_len(ht table) {
-  return table.len;
-}
+size_t ht_len(ht table) { return table.len; }
 
-size_t ht_len_2(ht *table) {
-  return table->len;
-}
+size_t ht_len_2(ht *table) { return table->len; }
 
-void item_display(ht_item item) {
+void item_display(ht_item item)
+{
   if (!item.occupied)
     return; // skip empty slots
   token *tokens = (token *)item.key;
@@ -127,7 +167,8 @@ void item_display(ht_item item) {
   printf("\t->\t%d\n", item.value);
 }
 
-void ht_display(ht *table) {
+void ht_display(ht *table)
+{
   for (size_t i = 0; i < table->len; i++) {
     if (table->items[i].occupied) {
       item_display(table->items[i]);
@@ -135,14 +176,18 @@ void ht_display(ht *table) {
   }
 }
 
-void item_init(ht_item *item, void *key, size_t key_len, uint64_t value) {
+void item_init(ht_item *item, void *key, size_t key_len, uint64_t value,
+               key_type_t item_type)
+{
   item->key = malloc(key_len);
   memcpy(item->key, key, key_len);
   item->key_len = key_len;
   item->value = value;
   item->occupied = true;
+  item->item_type = item_type;
 }
-void item_destroy(ht_item *item) {
+void item_destroy(ht_item *item)
+{
   if (!item || !item->occupied)
     return;
 
@@ -155,7 +200,9 @@ void item_destroy(ht_item *item) {
         free(p->r.data);
       free(p);
     }
-  } else if (item->item_type == KEY_TYPE_STRING || item->item_type == KEY_TYPE_TOKEN) {
+  }
+  else if (item->item_type == KEY_TYPE_STRING ||
+           item->item_type == KEY_TYPE_TOKEN) {
     if (item->key)
       free(item->key);
   }
@@ -164,7 +211,21 @@ void item_destroy(ht_item *item) {
   item->key_len = 0;
   item->value = 0;
 }
-bool pair_eq(pair *p1, pair *p2) {
+
+bool token_eq(token *t1, token *t2)
+{
+  if (t1->len != t2->len)
+    return false;
+  return memcmp(t1->data, t2->data, t1->len) == 0;
+}
+
+bool string_eq(ht_item item1, ht_item item2)
+{
+  return strcmp(item1.key, item2.key);
+}
+
+bool pair_eq(pair *p1, pair *p2)
+{
   // Compare left tokens
   if (p1->l.len != p2->l.len)
     return false;
@@ -179,45 +240,10 @@ bool pair_eq(pair *p1, pair *p2) {
 
   return true;
 }
-bool ht_insert_item(ht *table, ht_item item) {
-  uint64_t pos = table->hash_function(item.key, item.key_len) % table->len;
-  if (table->items[pos].occupied == false) {
-    // printf("SUCCESS\n");
-    table->items[pos] = item;
-    table->items[pos].occupied = true;
-    table->load_factor = table->load_factor + 1.0 / table->len;
-    return 1;
-  } else {
-    if (item.key_len == table->items[pos].key_len &&
-        memcmp(table->items[pos].key, item.key, item.key_len) == 0) {
-      // printf("DUPLICATE: %c\n", *(char *)(item.key));
-      return 1; // key already inserted, not real collision
-    }
-    // printf("COLLISION: %c\n", *(char *)(item.key));
-    size_t start_pos = pos;
-    size_t i = (pos + 1) % table->len;
-    while (i != start_pos) {
-      if (table->items[i].occupied == false) {
-        // printf("COLLISION RESOLVED\n");
-        table->items[i] = item;
-        table->items[i].occupied = true;
-        table->load_factor = table->load_factor + 1.0 / table->len;
-        return 1;
-      } else if (item.key_len == table->items[i].key_len &&
-                 memcmp(table->items[i].key, item.key, item.key_len) == 0) {
-        // printf("DUPLICATE: %c\n", *(char *)(item.key));
-        return 1; // key already inserted, not real collision
-      }
 
-      i = i + 1;
-      i = i % table->len;
-    }
-  }
-  return 0;
-}
-
-bool ht_insert_item_pair(ht *table, ht_item item) {
-  uint64_t pos = table->hash_function(item.key, item.key_len) % table->len;
+bool ht_insert_item(ht *table, ht_item item)
+{
+  uint64_t pos = hash_item(item, table);
   size_t start_pos = pos;
   while (true) {
     ht_item *table_item = &table->items[pos];
@@ -227,22 +253,38 @@ bool ht_insert_item_pair(ht *table, ht_item item) {
       table->items[pos].occupied = true;
       table->load_factor = table->load_factor + 1.0 / table->len;
       return 1;
-    } else {
+    }
+    else {
       if (item.key_len == table_item->key_len) {
-        if (pair_eq((pair *)item.key, (pair *)table_item->key)) {
-          return 1; // key already inserted, not real collision
+        switch (item.item_type) {
+        case KEY_TYPE_PAIR:
+          if (pair_eq((pair *)item.key, (pair *)table_item->key)) {
+            return 1; // key already inserted, not real collision
+          }
+          break;
+        case KEY_TYPE_STRING:
+          if (string_eq(item, *table_item)) {
+            return 1;
+          }
+          break;
+        case KEY_TYPE_TOKEN:
+          if (token_eq((token *)item.key, (token *)table_item->key)) {
+            return 1;
+          }
+          break;
         }
       }
-    }
-    pos = (pos + 1) % table->len;
-    if (pos == start_pos) {
-      break;
+      pos = (pos + 1) % table->len;
+      if (pos == start_pos) {
+        break;
+      }
     }
   }
   return 0;
 }
 
-bool ht_resize(ht *table) {
+bool ht_resize(ht *table)
+{
   table->load_factor = 0;
   ht_item *new_items = calloc(table->len * 2, sizeof(ht_item));
   size_t new_len = table->len * 2;
@@ -252,7 +294,7 @@ bool ht_resize(ht *table) {
   for (size_t i = 0; i < table->len; i++) {
     ht_item item = table->items[i];
     if (item.occupied) {
-      size_t pos = table->hash_function(item.key, item.key_len) % new_len;
+      size_t pos = hash_item(item, table);
       while (new_items[pos].occupied) {
         pos += 1;            // move along
         pos = pos % new_len; // NOTE: bad loop?
@@ -269,30 +311,70 @@ bool ht_resize(ht *table) {
   return 0;
 }
 
-ht_item *ht_get_item(ht *table, void *key, size_t _size) {
-  uint64_t pos = table->hash_function(key, _size) % table->len;
-  ht_item item = table->items[pos];
-  if (!item.occupied) {
+ht_item *ht_get_item(ht *table, void *key, size_t _size, key_type_t item_type)
+{
+  ht_item tmp;
+  item_init(&tmp, key, _size, 0, item_type);
+  uint64_t pos = hash_item(tmp, table);
+  ht_item table_item = table->items[pos];
+  if (!table_item.occupied) {
     return NULL;
   }
-  if (_size == item.key_len && memcmp(item.key, key, _size) == 0) {
-    return &table->items[pos];
-  } else {
+  if (_size == table_item.key_len) {
+
+    switch (table_item.item_type) {
+    case KEY_TYPE_PAIR:
+      if (pair_eq((pair *)key, (pair *)table_item.key)) {
+        return &table->items[pos];
+        // key already inserted, not real collision
+      }
+      break;
+    case KEY_TYPE_STRING:
+      if (strcmp((char *)key, (char *)table_item.key)) {
+        return &table->items[pos];
+      }
+      break;
+    case KEY_TYPE_TOKEN:
+      if (token_eq((token *)table_item.key, (token *)key)) {
+        return &table->items[pos];
+      }
+      break;
+    }
+  }
+  else {
     size_t start_pos = pos;
     size_t i = (pos + 1) % table->len;
     while (i != start_pos) {
-      ht_item item = table->items[i];
-      if (_size == item.key_len && memcmp(item.key, key, _size) == 0) {
-        return &table->items[i];
+      ht_item table_item = table->items[i];
+      if (_size == table_item.key_len) {
+        switch (table_item.item_type) {
+        case KEY_TYPE_PAIR:
+          if (pair_eq((pair *)key, (pair *)table_item.key)) {
+            return &table->items[i];
+            // key already inserted, not real collision
+          }
+          break;
+        case KEY_TYPE_STRING:
+          if (strcmp((char *)key, (char *)table_item.key)) {
+            return &table->items[pos];
+          }
+          break;
+        case KEY_TYPE_TOKEN:
+          if (token_eq((token *)table_item.key, (token *)key)) {
+            return &table->items[pos];
+          }
+          break;
+        }
+        i = i + 1;
+        i = i % table->len;
       }
-      i = i + 1;
-      i = i % table->len;
     }
   }
   return NULL;
 }
 
-void item_free(ht_item *item) {
+void item_free(ht_item *item)
+{
   if (!item || !item->occupied)
     return;
 
@@ -316,31 +398,8 @@ void item_free(ht_item *item) {
  * @param _size
  * @return
  */
-ht_item *ht_get_item_pair(ht *table, void *key, size_t _size) {
-  uint64_t pos = table->hash_function(key, _size) % table->len;
-  size_t start_pos = pos;
-
-  while (true) {
-    ht_item *item = &table->items[pos];
-
-    if (!item->occupied) {
-      return NULL; // Empty slot found, key not present
-    }
-
-    if (_size == item->key_len) {
-      if (pair_eq((pair *)item->key, (pair *)key)) {
-        return item;
-      }
-    }
-
-    pos = (pos + 1) % table->len;
-    if (pos == start_pos) {
-      break;
-    }
-  }
-  return NULL;
-}
-void print_hex(const char *s) {
+void print_hex(const char *s)
+{
   while (*s)
     printf("%02x", (unsigned int)*s++);
   printf("\t");
