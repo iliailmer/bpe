@@ -47,6 +47,7 @@ void item_init(ht_item *item, void *key, size_t key_len, uint64_t value,
                key_type_t item_type);
 void item_destroy(ht_item *item);
 
+void deep_copy(ht_item *item_src, ht_item *item_trg);
 // hashing routines
 uint64_t fnv1_hash(void *key, size_t _size);
 uint64_t fnv1a_hash(void *key, size_t _size);

@@ -12,7 +12,7 @@ void print_hex(const char *s);
 int main(void)
 {
   // * ✅ Implement vocabulary hash table clearly (token_sequence → frequency).
-  const char *readonly_text = "low lower lowest";
+  const char *readonly_text = "this is a big text i like it";
   char *text = strdup(readonly_text);
   ht *vocab = ht_create();
   bool insertion;
@@ -41,17 +41,21 @@ int main(void)
     }
     split_string = strtok(NULL, " ");
   }
-  ht_display(vocab);
   ht *pair_counter = ht_create();
   size_t token_size = 1;
   text = strdup(readonly_text);
 
+  printf("***\n*** VOCAB ***\n");
+  ht_display(vocab);
   // * pair counting
+  int max_value = -1;
+  ht_item max_pair;
+  ht_item *max_ptr = NULL;
   for (size_t i = 0; i < strlen(text) - 1; i++) {
     token l, r;
     pair p;
     l.data = malloc(sizeof(char) * token_size);
-    l.data[0] = text[i];
+    l.data[0] = text[i]; // TODO: THis should be a token, not a char
     l.len = token_size;
     r.data = malloc(sizeof(char) * token_size);
     r.data[0] = text[i + 1];
@@ -67,13 +71,27 @@ int main(void)
                           // full l.data and r.data too ideally for full safety.
       if (!ht_insert_item(pair_counter, token_pair)) {
         printf("Error inserting pair\n");
+        item_display(token_pair);
         exit(1);
       }
     }
     else {
       found->value += 1;
     }
+    if (found != NULL && found->value > max_value) {
+      max_ptr = found;
+      max_value = found->value;
+    }
   }
+  if (max_ptr) {
+    deep_copy(max_ptr, &max_pair);
+  }
+  printf("*** MAX FREQUENCY PAIR ***\n");
+  item_display(max_pair);
+  ht_insert_item(vocab, max_pair);
+  printf("***\n*** VOCAB ***\n");
+  ht_display(vocab);
+  printf("***\n*** ALL PAIRS ***\n");
   ht_display(pair_counter);
   ht_destroy(pair_counter);
   ht_destroy(vocab);

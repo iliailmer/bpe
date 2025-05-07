@@ -373,6 +373,38 @@ ht_item *ht_get_item(ht *table, void *key, size_t _size, key_type_t item_type)
   return NULL;
 }
 
+void deep_copy(ht_item *item_src, ht_item *item_trg)
+{
+  item_trg->item_type = item_src->item_type;
+  item_trg->value = item_src->value;
+  item_trg->occupied = true;
+  item_trg->key_len = item_src->key_len;
+  if (item_src->item_type == KEY_TYPE_PAIR) {
+    pair *orig = (pair *)item_src->key;
+    pair *copy = malloc(sizeof(pair));
+    copy->l.len = orig->l.len;
+    copy->r.len = orig->r.len;
+    copy->l.data = malloc(copy->l.len);
+    copy->r.data = malloc(copy->r.len);
+    memcpy(copy->l.data, orig->l.data, copy->l.len);
+    memcpy(copy->r.data, orig->r.data, copy->r.len);
+    item_trg->key = copy;
+  }
+  else if (item_src->item_type == KEY_TYPE_TOKEN) {
+    token *orig = (token *)item_src->key;
+    token *copy = malloc(sizeof(token));
+    copy->len = orig->len;
+    copy->data = malloc(copy->len);
+    memcpy(copy->data, orig->data, copy->len);
+    item_trg->key = copy;
+  }
+  else { // KEY_TYPE_STRING
+    item_trg->key = malloc(item_src->key_len + 1);
+    memcpy(item_trg->key, item_src->key, item_src->key_len);
+    ((char *)item_trg->key)[item_src->key_len] = '\0'; // null-terminate
+  }
+}
+
 void item_free(ht_item *item)
 {
   if (!item || !item->occupied)
