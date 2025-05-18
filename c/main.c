@@ -47,15 +47,16 @@ int main(void)
 
   printf("***\n*** VOCAB ***\n");
   ht_display(vocab);
+
   // * pair counting
   int max_value = -1;
   ht_item max_pair;
-  ht_item *max_ptr = NULL;
+  ht_item *max_ptr = &pair_counter->items[0];
   for (size_t i = 0; i < strlen(text) - 1; i++) {
     token l, r;
     pair p;
     l.data = malloc(sizeof(char) * token_size);
-    l.data[0] = text[i]; // TODO: THis should be a token, not a char
+    l.data[0] = text[i]; // TODO: This should be a token or a pair
     l.len = token_size;
     r.data = malloc(sizeof(char) * token_size);
     r.data[0] = text[i + 1];
@@ -71,6 +72,7 @@ int main(void)
                           // full l.data and r.data too ideally for full safety.
       if (!ht_insert_item(pair_counter, token_pair)) {
         printf("Error inserting pair\n");
+        ht_display(pair_counter);
         item_display(token_pair);
         exit(1);
       }
@@ -83,9 +85,7 @@ int main(void)
       max_value = found->value;
     }
   }
-  if (max_ptr) {
-    deep_copy(max_ptr, &max_pair);
-  }
+  deep_copy(max_ptr, &max_pair);
   printf("*** MAX FREQUENCY PAIR ***\n");
   item_display(max_pair);
   ht_insert_item(vocab, max_pair);
@@ -93,6 +93,8 @@ int main(void)
   ht_display(vocab);
   printf("***\n*** ALL PAIRS ***\n");
   ht_display(pair_counter);
+
+  // destroy tables
   ht_destroy(pair_counter);
   ht_destroy(vocab);
   return 0;

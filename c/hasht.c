@@ -279,36 +279,35 @@ bool ht_insert_item(ht *table, ht_item item)
         break;
       }
     }
+    if (table->load_factor > 0.7) {
+      ht_resize(table);
+      pos = hash_item(item, table);
+      start_pos = pos;
+    }
   }
   return 0;
 }
 
 bool ht_resize(ht *table)
 {
-  table->load_factor = 0;
-  ht_item *new_items = calloc(table->len * 2, sizeof(ht_item));
-  size_t new_len = table->len * 2;
+  ht_item *old_items = table->items;
+  size_t old_len = table->len;
+  size_t new_len = old_len * 2;
+  ht_item *new_items = calloc(new_len, sizeof(ht_item));
+  table->items = new_items;
+  table->load_factor = 0.0;
+  table->len = new_len;
   if (!new_items) {
     return 0;
   }
-  for (size_t i = 0; i < table->len; i++) {
-    ht_item item = table->items[i];
+  for (size_t i = 0; i < old_len; i++) {
+    ht_item item = old_items[i];
     if (item.occupied) {
-      size_t pos = hash_item(item, table);
-      while (new_items[pos].occupied) {
-        pos += 1;            // move along
-        pos = pos % new_len; // NOTE: bad loop?
-      }
-      new_items[pos] = item;
-      new_items[pos].occupied = true;
-      table->load_factor = table->load_factor + 1.0 / new_len;
+      ht_insert_item(table, item);
     }
   }
-  free(table->items);
-  table->items = new_items;
-  table->len = new_len;
-
-  return 0;
+  free(old_items);
+  return 1;
 }
 
 ht_item *ht_get_item(ht *table, void *key, size_t _size, key_type_t item_type)
