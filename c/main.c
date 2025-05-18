@@ -5,97 +5,128 @@
 #include <string.h>
 
 #include "hasht.h"
-// TODO: Tokenization:
-// * Implement pair counting clearly (pair → frequency).
-// * Merge the most frequent pair iteratively.
 void print_hex(const char *s);
 int main(void)
 {
-  // * ✅ Implement vocabulary hash table clearly (token_sequence → frequency).
   const char *readonly_text = "this is a big text i like it";
   char *text = strdup(readonly_text);
   ht *vocab = ht_create();
-  bool insertion;
-  char *split_string = strtok(text, " ");
-  while (split_string != NULL) {
-    size_t n = strlen(split_string);
-    for (size_t i = 0; i < n; i++) {
-      token *t = malloc(sizeof(token));
-      t->data = malloc(sizeof(char));
-      t->data[0] = split_string[i];
-      t->len = 1;
-
-      ht_item item;
-      item_init(&item, t, sizeof(token), 1, KEY_TYPE_TOKEN);
-      ht_item *found = ht_get_item(vocab, t, sizeof(token), KEY_TYPE_TOKEN);
-      if (found != NULL) {
-        found->value = found->value + 1;
-      }
-      else {
-        insertion = ht_insert_item(vocab, item);
-        if (!insertion) {
-          printf("Error inserting: %s\n", split_string);
-          exit(1);
-        }
-      }
-    }
-    split_string = strtok(NULL, " ");
+  size_t len = strlen(text);
+  token *tokens = malloc(len * sizeof(token));
+  size_t token_len = 0;
+  printf("convert initial text into list of character tokens\n");
+  for (size_t i = 0; i < len; i++) {
+    tokens[token_len].len = 1;
+    tokens[token_len].data = malloc(1);
+    tokens[token_len].data[0] = text[i];
+    token_len++;
   }
-  ht *pair_counter = ht_create();
-  size_t token_size = 1;
-  text = strdup(readonly_text);
-
-  printf("***\n*** VOCAB ***\n");
-  ht_display(vocab);
-
-  // * pair counting
-  int max_value = -1;
-  ht_item max_pair;
-  ht_item *max_ptr = &pair_counter->items[0];
-  for (size_t i = 0; i < strlen(text) - 1; i++) {
-    token l, r;
-    pair p;
-    l.data = malloc(sizeof(char) * token_size);
-    l.data[0] = text[i]; // TODO: This should be a token or a pair
-    l.len = token_size;
-    r.data = malloc(sizeof(char) * token_size);
-    r.data[0] = text[i + 1];
-    r.len = token_size;
-    p.l = l;
-    p.r = r;
-    ht_item *found = ht_get_item(pair_counter, &p, sizeof(pair), KEY_TYPE_PAIR);
-    if (found == NULL) {
-      ht_item token_pair;
-      item_init(
-          &token_pair, &p, sizeof(pair), 1,
-          KEY_TYPE_PAIR); // should copy not just the pointer addresses, but
-                          // full l.data and r.data too ideally for full safety.
-      if (!ht_insert_item(pair_counter, token_pair)) {
-        printf("Error inserting pair\n");
-        ht_display(pair_counter);
-        item_display(token_pair);
-        exit(1);
-      }
-    }
-    else {
+  printf("create the first vocab == count each character\n");
+  for (size_t i = 0; i < token_len; i++) {
+    token *t = &tokens[i];
+    ht_item *found = ht_get_item(vocab, t, sizeof(token), KEY_TYPE_TOKEN);
+    if (found != NULL) {
       found->value += 1;
     }
-    if (found != NULL && found->value > max_value) {
-      max_ptr = found;
-      max_value = found->value;
+    else {
+      ht_item item;
+      item_init(&item, t, sizeof(token), 1, KEY_TYPE_TOKEN);
+      ht_insert_item(vocab, item);
     }
   }
-  deep_copy(max_ptr, &max_pair);
-  printf("*** MAX FREQUENCY PAIR ***\n");
-  item_display(max_pair);
-  ht_insert_item(vocab, max_pair);
-  printf("***\n*** VOCAB ***\n");
   ht_display(vocab);
-  printf("***\n*** ALL PAIRS ***\n");
-  ht_display(pair_counter);
+  printf("loop for merging frequent pairs of tokens\n");
+  int max_iter = 100;
+  int current_iter = 0;
+  while (current_iter < max_iter) {
+    printf("Current Iteration: %d\n", current_iter + 1);
+    current_iter += 1;
+    int max_value = -1;
+    ht_item max_pair;
+    ht *pair_counter = ht_create();
+    for (size_t i = 0; i < token_len - 1; i++) {
+      pair p = {tokens[i], tokens[i + 1]};
+      ht_item *found =
+          ht_get_item(pair_counter, &p, sizeof(pair), KEY_TYPE_PAIR);
+      if (found != NULL) {
+        found->value += 1;
+      }
+      else {
+        ht_item item;
+        item_init(&item, &p, sizeof(pair), 1, KEY_TYPE_PAIR);
+        ht_insert_item(pair_counter, item);
+      }
+    }
+    // Step 3b: Find most frequent pair
+    for (size_t i = 0; i < pair_counter->len; i++) {
+      ht_item *it = &pair_counter->items[i];
+      if (it->occupied && it->value > max_value) {
+        max_value = it->value;
+        max_pair = *it;
+      }
+    }
+    if (max_value < 1) {
+      printf("No more merges\n");
+      ht_destroy(pair_counter);
+      break;
+    }
+    // Step 3c: Create merged token
+    pair *max_pair_key = max_pair.key;
+    token new_token;
+    new_token.len = max_pair_key->l.len + max_pair_key->r.len;
+    new_token.data = malloc(new_token.len);
 
-  // destroy tables
-  ht_destroy(pair_counter);
-  ht_destroy(vocab);
+    memcpy(new_token.data, max_pair_key->l.data, max_pair_key->l.len);
+    memcpy(new_token.data + max_pair_key->l.len, max_pair_key->r.data,
+           max_pair_key->r.len);
+
+    // Step 3d: Replace (l, r) with merged token in tokens[]
+    size_t new_len = 0;
+
+    token *new_tokens = malloc(token_len * sizeof(token)); // max same size
+    for (size_t i = 0; i < token_len;) {
+      if ((i < token_len - 1) && token_eq(&tokens[i], &max_pair_key->l) &&
+          token_eq(&tokens[i + 1], &max_pair_key->r)) {
+        new_tokens[new_len].len = new_token.len;
+        new_tokens[new_len].data = malloc(new_token.len);
+        memcpy(new_tokens[new_len].data, new_token.data, new_token.len);
+        new_len += 1;
+        i += 2;
+      }
+      else {
+        new_tokens[new_len].len = tokens[i].len;
+        new_tokens[new_len].data = malloc(tokens[i].len);
+        memcpy(new_tokens[new_len].data, tokens[i].data, tokens[i].len);
+        new_len += 1;
+        i += 1;
+      }
+    }
+    // Cleanup
+    for (size_t i = 0; i < token_len; i++) {
+      free(tokens[i].data);
+    }
+    free(tokens);
+    ht_destroy(pair_counter);
+
+    printf("Step3c\n");
+    tokens = new_tokens;
+    token_len = new_len;
+
+    // Step 3e: Insert new token into vocab
+    ht_item *found =
+        ht_get_item(vocab, &new_token, sizeof(token), KEY_TYPE_TOKEN);
+    if (found != NULL) {
+      found->value += 1;
+    }
+    else {
+      ht_item item;
+      item_init(&item, &new_token, sizeof(token), 1, KEY_TYPE_TOKEN);
+      ht_insert_item(vocab, item);
+    }
+
+    free(new_token.data);
+  }
+  printf("*** FINAL VOCAB ***\n");
+  ht_display(vocab);
   return 0;
 }

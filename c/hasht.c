@@ -151,20 +151,22 @@ size_t ht_len_2(ht *table) { return table->len; }
 void item_display(ht_item item)
 {
   if (!item.occupied)
-    return; // skip empty slots
-  token *tokens = (token *)item.key;
-  size_t token_count = item.key_len / sizeof(token);
-  // Print key
-  for (size_t i = 0; i < token_count; i++) {
-    printf("'");
-    for (size_t j = 0; j < tokens[i].len; j++) {
-      printf("%c", (tokens[i].data[j]));
-    }
-    printf("' ");
-  }
+    return;
 
-  // Print value
-  printf("\t->\t%d\n", item.value);
+  if (item.item_type == KEY_TYPE_TOKEN) {
+    token *t = (token *)item.key;
+    printf("'");
+    fwrite(t->data, 1, t->len, stdout);
+    printf("'\t->\t%d\n", item.value);
+  }
+  else if (item.item_type == KEY_TYPE_PAIR) {
+    pair *p = (pair *)item.key;
+    printf("'");
+    fwrite(p->l.data, 1, p->l.len, stdout);
+    printf("' + '");
+    fwrite(p->r.data, 1, p->r.len, stdout);
+    printf("'\t->\t%d\n", item.value);
+  }
 }
 
 void ht_display(ht *table)
@@ -179,13 +181,40 @@ void ht_display(ht *table)
 void item_init(ht_item *item, void *key, size_t key_len, uint64_t value,
                key_type_t item_type)
 {
-  item->key = malloc(key_len);
-  memcpy(item->key, key, key_len);
   item->key_len = key_len;
   item->value = value;
   item->occupied = true;
   item->item_type = item_type;
+
+  if (item_type == KEY_TYPE_PAIR) {
+    pair *src = (pair *)key;
+    pair *copy = malloc(sizeof(pair));
+
+    copy->l.len = src->l.len;
+    copy->r.len = src->r.len;
+
+    copy->l.data = malloc(copy->l.len);
+    memcpy(copy->l.data, src->l.data, copy->l.len);
+
+    copy->r.data = malloc(copy->r.len);
+    memcpy(copy->r.data, src->r.data, copy->r.len);
+
+    item->key = copy;
+  }
+  else if (item_type == KEY_TYPE_TOKEN) {
+    token *src = (token *)key;
+    token *copy = malloc(sizeof(token));
+    copy->len = src->len;
+    copy->data = malloc(copy->len);
+    memcpy(copy->data, src->data, copy->len);
+    item->key = copy;
+  }
+  else {
+    item->key = malloc(key_len);
+    memcpy(item->key, key, key_len);
+  }
 }
+
 void item_destroy(ht_item *item)
 {
   if (!item || !item->occupied)

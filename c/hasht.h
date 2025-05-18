@@ -32,7 +32,6 @@ typedef struct {
   bool occupied;
   key_type_t item_type;
 } ht_item;
-// thisoasdhf;aisjdhfnalkshfl
 
 typedef struct {
   size_t len;
@@ -68,5 +67,5 @@ bool ht_init(
 bool ht_insert_item(ht *table, ht_item item);
 ht_item *ht_get_item(ht *table, void *key, size_t _size, key_type_t item_type);
 size_t ht_len(ht table);
-
+bool token_eq(token *t1, token *t2);
 // bool ht_get_item(ht *table, void *key, size_t _size, ht_item *out);
