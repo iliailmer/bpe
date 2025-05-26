@@ -14,14 +14,12 @@ int main(void)
   size_t len = strlen(text);
   token *tokens = malloc(len * sizeof(token));
   size_t token_len = 0;
-  printf("convert initial text into list of character tokens\n");
   for (size_t i = 0; i < len; i++) {
     tokens[token_len].len = 1;
     tokens[token_len].data = malloc(1);
     tokens[token_len].data[0] = text[i];
     token_len++;
   }
-  printf("create the first vocab == count each character\n");
   for (size_t i = 0; i < token_len; i++) {
     token *t = &tokens[i];
     ht_item *found = ht_get_item(vocab, t, sizeof(token), KEY_TYPE_TOKEN);
@@ -35,7 +33,6 @@ int main(void)
     }
   }
   ht_display(vocab);
-  printf("loop for merging frequent pairs of tokens\n");
   int max_iter = 100;
   int current_iter = 0;
   while (current_iter < max_iter) {
