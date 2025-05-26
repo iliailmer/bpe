@@ -108,7 +108,6 @@ int main(void)
     free(tokens);
     ht_destroy(pair_counter);
 
-    printf("Step3c\n");
     tokens = new_tokens;
     token_len = new_len;
 
