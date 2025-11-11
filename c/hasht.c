@@ -33,10 +33,6 @@ uint64_t fnv1a_hash_tok(void *key)
     hash ^= (uint64_t)p->data[i];
     hash *= FNV_PRIME;
   }
-  for (size_t i = 0; i < p->len; i++) {
-    hash ^= (uint64_t)p->data[i];
-    hash *= FNV_PRIME;
-  }
   return hash;
 }
 uint64_t fnv1_hash_tok(void *key)
@@ -44,12 +40,8 @@ uint64_t fnv1_hash_tok(void *key)
   uint64_t hash = FNV_OFFSET;
   token *p = (token *)key;
   for (size_t i = 0; i < p->len; i++) {
-    hash *= (uint64_t)p->data;
-    hash ^= FNV_PRIME;
-  }
-  for (size_t i = 0; i < p->len; i++) {
-    hash *= (uint64_t)p->data[i];
-    hash ^= FNV_PRIME;
+    hash *= FNV_PRIME;
+    hash ^= (uint64_t)p->data[i];
   }
   return hash;
 }
@@ -108,7 +100,7 @@ ht *ht_create(void)
   table->len = INITIAL_SIZE;
   table->items = malloc(sizeof(ht_item) * table->len);
   if (table->items == NULL) {
-    free(table->items);
+    free(table);
     return NULL;
   }
   for (int i = 0; i < (int)table->len; i++) {
@@ -230,8 +222,15 @@ void item_destroy(ht_item *item)
       free(p);
     }
   }
-  else if (item->item_type == KEY_TYPE_STRING ||
-           item->item_type == KEY_TYPE_TOKEN) {
+  else if (item->item_type == KEY_TYPE_TOKEN) {
+    token *t = (token *)item->key;
+    if (t) {
+      if (t->data)
+        free(t->data);
+      free(t);
+    }
+  }
+  else if (item->item_type == KEY_TYPE_STRING) {
     if (item->key)
       free(item->key);
   }
@@ -250,7 +249,7 @@ bool token_eq(token *t1, token *t2)
 
 bool string_eq(ht_item item1, ht_item item2)
 {
-  return strcmp(item1.key, item2.key);
+  return strcmp(item1.key, item2.key) == 0;
 }
 
 bool pair_eq(pair *p1, pair *p2)
@@ -323,17 +322,23 @@ bool ht_resize(ht *table)
   size_t old_len = table->len;
   size_t new_len = old_len * 2;
   ht_item *new_items = calloc(new_len, sizeof(ht_item));
-  table->items = new_items;
-  table->load_factor = 0.0;
-  table->len = new_len;
   if (!new_items) {
     return 0;
   }
+  table->items = new_items;
+  table->load_factor = 0.0;
+  table->len = new_len;
+
   for (size_t i = 0; i < old_len; i++) {
-    ht_item item = old_items[i];
-    if (item.occupied) {
-      ht_insert_item(table, item);
+    if (old_items[i].occupied) {
+      ht_item new_item;
+      deep_copy(&old_items[i], &new_item);
+      ht_insert_item(table, new_item);
     }
+  }
+
+  for (size_t i = 0; i < old_len; i++) {
+    item_destroy(&old_items[i]);
   }
   free(old_items);
   return 1;
@@ -346,6 +351,7 @@ ht_item *ht_get_item(ht *table, void *key, size_t _size, key_type_t item_type)
   uint64_t pos = hash_item(tmp, table);
   ht_item table_item = table->items[pos];
   if (!table_item.occupied) {
+    item_destroy(&tmp);
     return NULL;
   }
   if (_size == table_item.key_len) {
@@ -353,17 +359,19 @@ ht_item *ht_get_item(ht *table, void *key, size_t _size, key_type_t item_type)
     switch (table_item.item_type) {
     case KEY_TYPE_PAIR:
       if (pair_eq((pair *)key, (pair *)table_item.key)) {
+        item_destroy(&tmp);
         return &table->items[pos];
-        // key already inserted, not real collision
       }
       break;
     case KEY_TYPE_STRING:
-      if (strcmp((char *)key, (char *)table_item.key)) {
+      if (strcmp((char *)key, (char *)table_item.key) == 0) {
+        item_destroy(&tmp);
         return &table->items[pos];
       }
       break;
     case KEY_TYPE_TOKEN:
       if (token_eq((token *)table_item.key, (token *)key)) {
+        item_destroy(&tmp);
         return &table->items[pos];
       }
       break;
@@ -378,18 +386,20 @@ ht_item *ht_get_item(ht *table, void *key, size_t _size, key_type_t item_type)
         switch (table_item.item_type) {
         case KEY_TYPE_PAIR:
           if (pair_eq((pair *)key, (pair *)table_item.key)) {
+            item_destroy(&tmp);
             return &table->items[i];
-            // key already inserted, not real collision
           }
           break;
         case KEY_TYPE_STRING:
-          if (strcmp((char *)key, (char *)table_item.key)) {
-            return &table->items[pos];
+          if (strcmp((char *)key, (char *)table_item.key) == 0) {
+            item_destroy(&tmp);
+            return &table->items[i];
           }
           break;
         case KEY_TYPE_TOKEN:
           if (token_eq((token *)table_item.key, (token *)key)) {
-            return &table->items[pos];
+            item_destroy(&tmp);
+            return &table->items[i];
           }
           break;
         }
@@ -398,6 +408,7 @@ ht_item *ht_get_item(ht *table, void *key, size_t _size, key_type_t item_type)
       }
     }
   }
+  item_destroy(&tmp);
   return NULL;
 }
 

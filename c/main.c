@@ -124,5 +124,13 @@ int main(void)
   }
   printf("*** FINAL VOCAB ***\n");
   ht_display(vocab);
+
+  for (size_t i = 0; i < token_len; i++) {
+    free(tokens[i].data);
+  }
+  free(tokens);
+  free(text);
+  ht_destroy(vocab);
+
   return 0;
 }
